@@ -62,6 +62,3 @@ def hybrid(userId, title):
     
     #Return the top 10 movies as recommendations
     return movies.head(10)
-
-if __name__ == "__main__":
-    hybrid(1, 'Avatar')

@@ -10,6 +10,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 from MainScreen import Ui_MovieRecommenderMain
 import pandas as pd
+from Models.User import User
 
 class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
@@ -49,6 +50,8 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
         self.btnSubmit.clicked.connect(self.onSubmit)
         self.btnSubmit.setFont(font)
         self.btnSubmit.setObjectName("btnSubmit")
+        self.lbPassword.returnPressed.connect(self.btnSubmit.click)
+        self.lbUsername.returnPressed.connect(self.btnSubmit.click)
         self.lbLogin = QtWidgets.QLabel(self.centralwidget)
         self.lbLogin.setGeometry(QtCore.QRect(180, 70, 181, 51))
         font = QtGui.QFont()
@@ -78,17 +81,21 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
     def userExists(self):
         """ User check in the dataset """
         if self.lbUsername.text() is "" or self.lbPassword.text() is "":
-            return False
+            return pd.DataFrame()
 
-        usersDF = pd.read_csv("data/users.csv", dtype=str)
-        return ((usersDF.userNames == self.lbUsername.text()).any() & (usersDF.password == self.lbPassword.text()).any())
+        usersDF = pd.read_csv("../data/users.csv", dtype=str)
+        User.users_dataset = usersDF
+        return usersDF.loc[(usersDF.userNames == self.lbUsername.text()) & (usersDF.password == self.lbPassword.text())]
 
     def onSubmit(self):
-        if not self.userExists():
+        userBeing = self.userExists()
+        if userBeing.empty:
             QMessageBox.warning(self, 'LOGIN', "Please type the right information!", QMessageBox.Ok, QMessageBox.Ok)
             return
+
+        User.id = userBeing.id.values[0]
+        User.username = userBeing.userNames[0]
         
         main = Ui_MovieRecommenderMain(self)
         self.close()
         main.show()
-        

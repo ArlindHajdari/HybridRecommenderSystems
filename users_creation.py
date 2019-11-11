@@ -1,5 +1,6 @@
 import names
 import pandas as pd
+from random import randint
 
 user_ids = []
 chunksize = 10 ** 6
@@ -9,7 +10,7 @@ for chunk in pd.read_csv("data/ratings.csv", chunksize=chunksize):
 
 def generate_users(ratings_dataset = user_ids):
     userIds = list(set(user_ids))
-    randomNames = [names.get_first_name() for i in range(len(userIds))]
+    randomNames = [f"{names.get_first_name()}{randint(1000,9999)}" for i in range(len(userIds))]
     user_ids_pd = pd.DataFrame(randomNames, index = userIds, columns = ["userNames"])
     user_ids_pd["password"] = "12345"
     user_ids_pd.to_csv("data/users.csv")

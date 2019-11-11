@@ -8,12 +8,14 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+import pandas as pd
+from Models.User import User
 
 class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
         super(Ui_MovieRecommenderMain, self).__init__(parent)
         self.setupUi(self)
+        self.parent = parent
 
     def setupUi(self, MovieRecommenderMain):
         MovieRecommenderMain.setObjectName("MovieRecommenderMain")
@@ -56,9 +58,10 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         self.btnHome = QtWidgets.QPushButton(self.centralwidget)
         self.btnHome.setGeometry(QtCore.QRect(10, 0, 31, 23))
         self.btnHome.setText("")
-        self.btnHome.clicked.connect(self.btnHome_onClick)
+        self.btnHome.clicked.connect(self.btnHome_Click)
+        self.btnGenerate.clicked.connect(self.btnGenerate_Click)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("icons/home.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap("../icons/home.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.btnHome.setIcon(icon)
         self.btnHome.setIconSize(QtCore.QSize(20, 17))
         self.btnHome.setObjectName("btnHome")
@@ -66,8 +69,10 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         self.statusbar = QtWidgets.QStatusBar(MovieRecommenderMain)
         self.statusbar.setObjectName("statusbar")
         MovieRecommenderMain.setStatusBar(self.statusbar)
+        
 
         self.retranslateUi(MovieRecommenderMain)
+        self.populateFriendList()
         QtCore.QMetaObject.connectSlotsByName(MovieRecommenderMain)
 
     def retranslateUi(self, MovieRecommenderMain):
@@ -77,5 +82,24 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         self.btnGenerate.setText(_translate("MovieRecommenderMain", "Generate"))
         self.lblRecommendedMovies.setText(_translate("MovieRecommenderMain", "Recommended movies"))
 
-    def btnHome_onClick(self):
-        print("Home button clicked!")
+    def populateFriendList(self):
+        users = pd.read_csv("../data/users.csv")
+        self.friendsList.addItems(list(users.loc[users.userNames != User.username].userNames))
+
+    def btnHome_Click(self):
+        self.close()
+        self.parent.lbUsername.setText("")
+        self.parent.lbPassword.setText("")
+        self.parent.show()
+        User.id = -1
+        User.username = "none"
+
+    def btnGenerate_Click(self):
+        model = QtGui.QStandardItemModel()
+
+        for item in self.friendsList.selectedItems():
+            model.appendRow(QtGui.QStandardItem(item.text()))
+
+        self.listView.setModel(model) # listView population
+
+        # The implementation of Hybrid recommander system
