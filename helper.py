@@ -39,3 +39,10 @@ def clean_dataset(self, full_dataset_path="../data/movies_metadata.csv"):
     full_dataset['genres'] = full_dataset['genres'].apply(lambda x: [i['name'].lower() for i in x] if isinstance(x, list) else [])
 
     return full_dataset
+
+def read_in_chunks(file_object, chunk_size=1024):
+    while True:
+        data = file_object.read(chunk_size)
+        if not data:
+            break
+        yield data

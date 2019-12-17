@@ -2,6 +2,7 @@ import pandas as pd
 from surprise import SVD, Reader, Dataset
 from sklearn.metrics.pairwise import linear_kernel
 from sklearn.feature_extraction.text import TfidfVectorizer
+from statistics import mean
 
 RATINGS_SMALL = "../data/ratings_small.csv"
 MOVIES = "../data/movie_ids.csv"
@@ -91,11 +92,14 @@ class HybridRecommenderSystem:
         movies = self.original_dataframe.iloc[movie_indices][['title', 'vote_count', 'vote_average', 'year', 'id']]
 
         #Compute the predicted ratings using the SVD filter
-        movies['est'] = movies['id'].apply(lambda x: self.svd.predict(userId, self.id_to_title.loc[x]['title']).est)
+        movies['est'] = movies['id'].apply(lambda x: self.predict([userId], x))
 
         #Sort the movies in decreasing order of predicted rating
         movies = movies.sort_values('est', ascending=False)
 
         #Return the top 10 movies as recommendations
         return movies.head(10)
+
+    def predict(self, users, movieId):
+        return mean([self.svd.predict(i, self.id_to_title.loc[movieId]['title']).est for i in users])
 
