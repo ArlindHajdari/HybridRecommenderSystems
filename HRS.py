@@ -48,7 +48,7 @@ class HybridRecommenderSystem:
         self.clean_dataframe['overview'] = self.clean_dataframe['overview'].fillna('')
 
         # Construct the required TF-IDF matrix by applying the fit_transform method on the overview feature
-        tfidf_matrix = tfidf.fit_transform(self.clean_dataframe['overview'])  # 12000 because of memory error
+        tfidf_matrix = tfidf.fit_transform(self.clean_dataframe['overview'].head(10000))  # 12000 because of memory error
 
         return tfidf_matrix
 
@@ -85,16 +85,16 @@ class HybridRecommenderSystem:
         movie_indices = [i[0] for i in sim_scores]
 
         # Return the top 10 most similar movies
-        return movies_dataset['title'].iloc[movie_indices]
+        return movie_indices
 
     def hybrid(self, usersIds, title):
-        movie_indices = self.content_based_recommender(title, self.original_dataframe)
+        movie_indices = self.content_based_recommender(title, self.clean_dataframe)
 
         #Extract the metadata of the aforementioned movies
-        movies = self.original_dataframe.iloc[movie_indices][['title', 'vote_count', 'vote_average', 'year', 'id']]
+        movies = self.clean_dataframe.iloc[movie_indices][['title', 'vote_count', 'vote_average', 'year', 'id']]
 
         #Compute the predicted ratings using the SVD filter
-        movies['est'] = movies['id'].apply(lambda x: self.predict(usersIds, x))
+        movies['est'] = movies['id'].apply(lambda x: self.predict(usersIds, int(x)))
 
         #Sort the movies in decreasing order of predicted rating
         movies = movies.sort_values('est', ascending=False)

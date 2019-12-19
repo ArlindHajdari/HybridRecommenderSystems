@@ -108,10 +108,10 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         SessionUser.username = "none"
 
     def btnGenerate_Click(self):
-        usersIds = [item.data(QtCore.Qt.UserRole) for item in self.friendsList.selectedItems()]
+        usersIds = [int(item.data(QtCore.Qt.UserRole)) for item in self.friendsList.selectedItems()]
         # The implementation of Hybrid recommander system
         hrs = HybridRecommenderSystem()
-        recommended_movies = hrs.hybrid(usersIds, 'Toy Story')
+        recommended_movies = hrs.hybrid(usersIds, 'Toy Story 2')
         recommended_movies = recommended_movies['title'].values
 
         model = QtGui.QStandardItemModel()
