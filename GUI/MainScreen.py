@@ -9,7 +9,10 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pandas as pd
-from Models.User import User
+
+from HRS import HybridRecommenderSystem
+from Models.SessionUser import SessionUser
+import csv
 
 class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
@@ -83,23 +86,37 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         self.lblRecommendedMovies.setText(_translate("MovieRecommenderMain", "Recommended movies"))
 
     def populateFriendList(self):
-        users = pd.read_csv("../data/users.csv")
-        self.friendsList.addItems(list(users.loc[users.userNames != User.username].userNames))
+        users = []
+        with open('../data/users.csv', 'r') as f:
+            has_header = csv.Sniffer().has_header(f.read(1024))
+            f.seek(0)  # Rewind.
+            reader = csv.reader(f)
+            if has_header:
+                next(reader)  # Skip header row.
+            for row in reader:
+                if row[1] != SessionUser.username:
+                    item = QtWidgets.QListWidgetItem(row[1], self.friendsList)
+                    item.setData(QtCore.Qt.UserRole, row[0])
+
 
     def btnHome_Click(self):
         self.close()
         self.parent.lbUsername.setText("")
         self.parent.lbPassword.setText("")
         self.parent.show()
-        User.id = -1
-        User.username = "none"
+        SessionUser.id = -1
+        SessionUser.username = "none"
 
     def btnGenerate_Click(self):
+        usersIds = [item.data(QtCore.Qt.UserRole) for item in self.friendsList.selectedItems()]
+        # The implementation of Hybrid recommander system
+        hrs = HybridRecommenderSystem()
+        recommended_movies = hrs.hybrid(usersIds, 'Toy Story')
+        recommended_movies = recommended_movies['title'].values
+
         model = QtGui.QStandardItemModel()
 
-        for item in self.friendsList.selectedItems():
-            model.appendRow(QtGui.QStandardItem(item.text()))
+        for item in recommended_movies:
+            model.appendRow(QtGui.QStandardItem(item))
 
-        self.listView.setModel(model) # listView population
-
-        # The implementation of Hybrid recommander system
+        self.listView.setModel(model)  # listView population

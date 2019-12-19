@@ -10,7 +10,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 from MainScreen import Ui_MovieRecommenderMain
 import pandas as pd
-from Models.User import User
+from Models.SessionUser import SessionUser
 
 class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
@@ -84,7 +84,7 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
             return pd.DataFrame()
 
         usersDF = pd.read_csv("../data/users.csv", dtype=str)
-        User.users_dataset = usersDF
+        SessionUser.users_dataset = usersDF
         return usersDF.loc[(usersDF.userNames == self.lbUsername.text()) & (usersDF.password == self.lbPassword.text())]
 
     def onSubmit(self):
@@ -93,8 +93,8 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
             QMessageBox.warning(self, 'LOGIN', "Please type the right information!", QMessageBox.Ok, QMessageBox.Ok)
             return
 
-        User.id = userBeing.id.values[0]
-        User.username = userBeing.userNames[0]
+        SessionUser.id = userBeing.id.values[0]
+        SessionUser.username = userBeing.userNames[0]
         
         main = Ui_MovieRecommenderMain(self)
         self.close()

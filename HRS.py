@@ -5,7 +5,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from statistics import mean
 
 RATINGS_SMALL = "../data/ratings_small.csv"
-MOVIES = "../data/movie_ids.csv"
+# MOVIES = "../data/movie_ids.csv"
+MOVIES = "../data/movies.csv"
 METADATA_CLEAN = "../data/metadata_clean.csv"
 ORIGINAL_DATASET = "../data/movies_metadata.csv"
 
@@ -16,9 +17,10 @@ class HybridRecommenderSystem:
         self.svd = SVD()
         self.reader = Reader()
         id_map = pd.read_csv(movies_path)
-        self.id_to_title = id_map.set_index('id')
+        self.id_to_title = id_map.set_index('movieId')
         self.clean_dataset_path = clean_dataset_path
         self.original_dataset_path = original_dataset_path
+        self.initialize()
 
     def initialize(self):
         data = self.load_ratings(RATINGS_SMALL)
@@ -46,7 +48,7 @@ class HybridRecommenderSystem:
         self.clean_dataframe['overview'] = self.clean_dataframe['overview'].fillna('')
 
         # Construct the required TF-IDF matrix by applying the fit_transform method on the overview feature
-        tfidf_matrix = tfidf.fit_transform(self.clean_dataframe['overview'])
+        tfidf_matrix = tfidf.fit_transform(self.clean_dataframe['overview'])  # 12000 because of memory error
 
         return tfidf_matrix
 
@@ -66,7 +68,7 @@ class HybridRecommenderSystem:
         indices = self.generate_indicies(movies_dataset)
         idx = indices[title]
 
-        # Calculate cosine similarity
+        # Calculate cosine similarity (or extract it from file)
         cosine_similarity = self.calculate_cosine_similarity()
 
         # Get the pairwsie similarity scores of all movies with that movie
@@ -85,14 +87,14 @@ class HybridRecommenderSystem:
         # Return the top 10 most similar movies
         return movies_dataset['title'].iloc[movie_indices]
 
-    def hybrid(self, userId, title):
+    def hybrid(self, usersIds, title):
         movie_indices = self.content_based_recommender(title, self.original_dataframe)
 
         #Extract the metadata of the aforementioned movies
         movies = self.original_dataframe.iloc[movie_indices][['title', 'vote_count', 'vote_average', 'year', 'id']]
 
         #Compute the predicted ratings using the SVD filter
-        movies['est'] = movies['id'].apply(lambda x: self.predict([userId], x))
+        movies['est'] = movies['id'].apply(lambda x: self.predict(usersIds, x))
 
         #Sort the movies in decreasing order of predicted rating
         movies = movies.sort_values('est', ascending=False)
