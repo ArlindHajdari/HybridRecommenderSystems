@@ -9,14 +9,16 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pandas as pd
-
+import asyncio
 from HRS import HybridRecommenderSystem
 from Models.SessionUser import SessionUser
 import csv
+import concurrent.futures
 
 class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
         super(Ui_MovieRecommenderMain, self).__init__(parent)
+        self.hrs = HybridRecommenderSystem()
         self.setupUi(self)
         self.parent = parent
 
@@ -72,7 +74,6 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         self.statusbar = QtWidgets.QStatusBar(MovieRecommenderMain)
         self.statusbar.setObjectName("statusbar")
         MovieRecommenderMain.setStatusBar(self.statusbar)
-        
 
         self.retranslateUi(MovieRecommenderMain)
         self.populateFriendList()
@@ -86,18 +87,12 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         self.lblRecommendedMovies.setText(_translate("MovieRecommenderMain", "Recommended movies"))
 
     def populateFriendList(self):
-        users = []
-        with open('../data/users.csv', 'r') as f:
-            has_header = csv.Sniffer().has_header(f.read(1024))
-            f.seek(0)  # Rewind.
-            reader = csv.reader(f)
-            if has_header:
-                next(reader)  # Skip header row.
-            for row in reader:
-                if row[1] != SessionUser.username:
-                    item = QtWidgets.QListWidgetItem(row[1], self.friendsList)
-                    item.setData(QtCore.Qt.UserRole, row[0])
+        friends = pd.read_csv("../data/users.csv", nrows=20)
 
+        for index, row in friends.iterrows():
+            if row[1] != SessionUser.username:
+                item = QtWidgets.QListWidgetItem(row[1], self.friendsList)
+                item.setData(QtCore.Qt.UserRole, row[0])
 
     def btnHome_Click(self):
         self.close()
@@ -108,10 +103,11 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         SessionUser.username = "none"
 
     def btnGenerate_Click(self):
+        self.listView.reset()
         usersIds = [int(item.data(QtCore.Qt.UserRole)) for item in self.friendsList.selectedItems()]
         # The implementation of Hybrid recommander system
-        hrs = HybridRecommenderSystem()
-        recommended_movies = hrs.hybrid(usersIds, 'Toy Story 2')
+
+        recommended_movies = self.hrs.hybrid(usersIds, 'Toy Story')
         recommended_movies = recommended_movies['title'].values
 
         model = QtGui.QStandardItemModel()

@@ -3,6 +3,8 @@ from surprise import SVD, Reader, Dataset
 from sklearn.metrics.pairwise import linear_kernel
 from sklearn.feature_extraction.text import TfidfVectorizer
 from statistics import mean
+import pickle
+import os
 
 RATINGS_SMALL = "../data/ratings_small.csv"
 # MOVIES = "../data/movie_ids.csv"
@@ -23,19 +25,24 @@ class HybridRecommenderSystem:
         self.initialize()
 
     def initialize(self):
-        data = self.load_ratings(RATINGS_SMALL)
-        self.train_svd(data)
+        self.train_svd()
         self.clean_dataframe = pd.read_csv(self.clean_dataset_path)  # Clean dataset
         self.original_dataframe = pd.read_csv(self.original_dataset_path, low_memory=False)  # Original dataset
 
     def load_ratings(self, csv_path):
         ratings = pd.read_csv(csv_path)
-        data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], self.reader)
-        return data
+        return Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], self.reader)
 
-    def train_svd(self, dataset: Dataset):
-        trainset = dataset.build_full_trainset()
-        self.svd.fit(trainset)
+    def train_svd(self):
+        if not os.path.exists("../data/svd_model.p"):
+            ratings_dataset = self.load_ratings(RATINGS_SMALL)
+            trainset = ratings_dataset.build_full_trainset()
+            temp_model = self.svd.fit(trainset)
+            with open("../data/svd_model.p", 'wb') as model:
+                pickle.dump(temp_model, model)
+        else:
+            with open('../data/svd_model.p', 'rb') as fp:
+                self.svd = pickle.load(fp, encoding="utf8")
 
     def calculate_tfidf(self):
         # Add extra columns to clean_dataset from orignial's one
@@ -103,5 +110,10 @@ class HybridRecommenderSystem:
         return movies.head(10)
 
     def predict(self, users, movieId):
-        return mean([self.svd.predict(i, self.id_to_title.loc[movieId]['title']).est for i in users])
+        try:
+            title = self.id_to_title.loc[movieId]['title']
+        except:
+            title = ''
+
+        return mean([self.svd.predict(i, title).est for i in users])
 

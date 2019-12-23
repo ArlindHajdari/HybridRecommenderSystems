@@ -12,6 +12,8 @@ from MainScreen import Ui_MovieRecommenderMain
 import pandas as pd
 from Models.SessionUser import SessionUser
 
+chunksize = 10 ** 6
+
 class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
         super(Ui_MovieRecommender_Window, self).__init__(parent)
@@ -83,9 +85,14 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
         if self.lbUsername.text() is "" or self.lbPassword.text() is "":
             return pd.DataFrame()
 
-        usersDF = pd.read_csv("../data/users.csv", dtype=str)
-        SessionUser.users_dataset = usersDF
-        return usersDF.loc[(usersDF.userNames == self.lbUsername.text()) & (usersDF.password == self.lbPassword.text())]
+        # usersDF = pd.read_csv("../data/users.csv", dtype=str)
+
+        for chunk in pd.read_csv("../data/users.csv", dtype=str, chunksize=chunksize):
+            row_found = chunk.loc[(chunk.userNames == self.lbUsername.text()) & (chunk.password == self.lbPassword.text())]
+            if not row_found.empty:
+                return row_found
+
+        return pd.DataFrame()
 
     def onSubmit(self):
         userBeing = self.userExists()
