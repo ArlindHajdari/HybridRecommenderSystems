@@ -5,38 +5,33 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from statistics import mean
 import pickle
 import os
+from operator import itemgetter
 
 RATINGS_SMALL = "../data/ratings_small.csv"
 # MOVIES = "../data/movie_ids.csv"
 MOVIES = "../data/movies.csv"
 METADATA_CLEAN = "../data/metadata_clean.csv"
 ORIGINAL_DATASET = "../data/movies_metadata.csv"
+TOP_MOVIES = 3
 
 
 class HybridRecommenderSystem:
     def __init__(self, movies_path=MOVIES,
-                 clean_dataset_path=METADATA_CLEAN, original_dataset_path=ORIGINAL_DATASET):
+                 clean_dataset_path=METADATA_CLEAN, original_dataset_path=ORIGINAL_DATASET, rating_dataset_path=RATINGS_SMALL, top_movies=TOP_MOVIES):
         self.svd = SVD()
         self.reader = Reader()
         id_map = pd.read_csv(movies_path)
         self.id_to_title = id_map.set_index('movieId')
-        self.clean_dataset_path = clean_dataset_path
-        self.original_dataset_path = original_dataset_path
-        self.initialize()
-
-    def initialize(self):
+        self.ratings_dataset = pd.read_csv(rating_dataset_path)  # Rating dataset
+        self.clean_dataframe = pd.read_csv(clean_dataset_path)  # Clean dataset
+        self.original_dataframe = pd.read_csv(original_dataset_path, low_memory=False)  # Original dataset
+        self.top_movies = top_movies
         self.train_svd()
-        self.clean_dataframe = pd.read_csv(self.clean_dataset_path)  # Clean dataset
-        self.original_dataframe = pd.read_csv(self.original_dataset_path, low_memory=False)  # Original dataset
-
-    def load_ratings(self, csv_path):
-        ratings = pd.read_csv(csv_path)
-        return Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], self.reader)
 
     def train_svd(self):
         if not os.path.exists("../data/svd_model.p"):
-            ratings_dataset = self.load_ratings(RATINGS_SMALL)
-            trainset = ratings_dataset.build_full_trainset()
+            ratings_for_reader = Dataset.load_from_df(self.ratings_dataset[['userId', 'movieId', 'rating']], self.reader)
+            trainset = ratings_for_reader.build_full_trainset()
             temp_model = self.svd.fit(trainset)
             with open("../data/svd_model.p", 'wb') as model:
                 pickle.dump(temp_model, model)
@@ -55,7 +50,7 @@ class HybridRecommenderSystem:
         self.clean_dataframe['overview'] = self.clean_dataframe['overview'].fillna('')
 
         # Construct the required TF-IDF matrix by applying the fit_transform method on the overview feature
-        tfidf_matrix = tfidf.fit_transform(self.clean_dataframe['overview'].head(10000))  # 12000 because of memory error
+        tfidf_matrix = tfidf.fit_transform(self.clean_dataframe['overview'].head(10000))  # 10000 because of memory error
 
         return tfidf_matrix
 
@@ -66,36 +61,40 @@ class HybridRecommenderSystem:
 
         return cosine_similarity
 
-    def generate_indicies(self, movies_dataset):
-        indices = pd.Series(movies_dataset.index, index=movies_dataset['title']).drop_duplicates()
+    def generate_indicies(self, movies_dataset, userIds):
+        # indices = pd.Series(clean_dataframe.index, index=clean_dataframe['title']).drop_duplicates()
+        indices = self.ratings_dataset.drop_duplicates().where(self.ratings_dataset['userId'].isin(userIds)).groupby('userId').apply(lambda _df: _df.sort_values(by=['rating'], ascending=False).head(self.top_movies)).dropna()[['movieId']].astype(int).values.flatten()
         return indices
 
-    def content_based_recommender(self, title, movies_dataset):
+    def content_based_recommender(self, movies_dataset, usersIds):
         # Obtain the index of the movie that matches the title
-        indices = self.generate_indicies(movies_dataset)
-        idx = indices[title]
+        indices = self.generate_indicies(movies_dataset, usersIds)
+
+        # Select movies by users
+        # From the selected movies fetch sim_scores
+        # idx = indices[title]
 
         # Calculate cosine similarity (or extract it from file)
         cosine_similarity = self.calculate_cosine_similarity()
 
-        # Get the pairwsie similarity scores of all movies with that movie
+        # Get the pairwise similarity scores of all movies with that movie
         # And convert it into a list of tuples as described above
-        sim_scores = list(enumerate(cosine_similarity[idx]))
+        sim_scores = [list(enumerate(cosine_similarity[i])) for i in indices]
 
         # Sort the movies based on the cosine similarity scores
-        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+        sim_scores = [sorted(sim_scores[i], key=lambda x: x[1], reverse=True) for i in range(len(sim_scores))]
 
         # Get the scores of the 10 most similar movies. Ignore the first movie.
-        sim_scores = sim_scores[1:26]
+        sim_scores = [sim_scores[i][1:self.top_movies] for i in range(len(sim_scores))]
 
         # Get the movie indices
-        movie_indices = [i[0] for i in sim_scores]
+        movie_indices = [i[0] for sim_score in sim_scores for i in sim_score]
 
         # Return the top 10 most similar movies
         return movie_indices
 
-    def hybrid(self, usersIds, title):
-        movie_indices = self.content_based_recommender(title, self.clean_dataframe)
+    def hybrid(self, usersIds):
+        movie_indices = self.content_based_recommender(self.clean_dataframe, usersIds)
 
         #Extract the metadata of the aforementioned movies
         movies = self.clean_dataframe.iloc[movie_indices][['title', 'vote_count', 'vote_average', 'year', 'id']]

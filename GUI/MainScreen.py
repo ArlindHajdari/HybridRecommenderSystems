@@ -8,12 +8,11 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QAbstractItemView, QMessageBox
 import pandas as pd
-import asyncio
 from HRS import HybridRecommenderSystem
 from Models.SessionUser import SessionUser
-import csv
-import concurrent.futures
+
 
 class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
@@ -53,6 +52,7 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         self.listView = QtWidgets.QListView(self.centralwidget)
         self.listView.setGeometry(QtCore.QRect(260, 60, 321, 251))
         self.listView.setObjectName("listView")
+        self.listView.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.lblRecommendedMovies = QtWidgets.QLabel(self.centralwidget)
         self.lblRecommendedMovies.setGeometry(QtCore.QRect(260, 30, 321, 21))
         font = QtGui.QFont()
@@ -83,7 +83,7 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         _translate = QtCore.QCoreApplication.translate
         MovieRecommenderMain.setWindowTitle(_translate("MovieRecommenderMain", "Movie Recommeder"))
         self.lblFriends.setText(_translate("MovieRecommenderMain", "Friends: "))
-        self.btnGenerate.setText(_translate("MovieRecommenderMain", "Generate"))
+        self.btnGenerate.setText(_translate("MovieRecommenderMain", "Get recommendations"))
         self.lblRecommendedMovies.setText(_translate("MovieRecommenderMain", "Recommended movies"))
 
     def populateFriendList(self):
@@ -103,16 +103,18 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         SessionUser.username = "none"
 
     def btnGenerate_Click(self):
-        self.listView.reset()
         usersIds = [int(item.data(QtCore.Qt.UserRole)) for item in self.friendsList.selectedItems()]
-        # The implementation of Hybrid recommander system
-
-        recommended_movies = self.hrs.hybrid(usersIds, 'Toy Story')
-        recommended_movies = recommended_movies['title'].values
 
         model = QtGui.QStandardItemModel()
 
-        for item in recommended_movies:
-            model.appendRow(QtGui.QStandardItem(item))
+        if len(usersIds) > 0:
+            # The implementation of Hybrid recommander system
+            recommended_movies = self.hrs.hybrid(usersIds)
+            recommended_movies = recommended_movies['title'].values
+
+            for item in recommended_movies:
+                model.appendRow(QtGui.QStandardItem(item))
+        else:
+            QMessageBox.warning(self, 'Friends', "Please select your friends!", QMessageBox.Ok, QMessageBox.Ok)
 
         self.listView.setModel(model)  # listView population
