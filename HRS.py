@@ -5,10 +5,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from statistics import mean
 import pickle
 import os
-from operator import itemgetter
 
 RATINGS_SMALL = "../data/ratings_small.csv"
-# MOVIES = "../data/movie_ids.csv"
 MOVIES = "../data/movies.csv"
 METADATA_CLEAN = "../data/metadata_clean.csv"
 ORIGINAL_DATASET = "../data/movies_metadata.csv"
@@ -29,17 +27,21 @@ class HybridRecommenderSystem:
         self.train_svd()
 
     def train_svd(self):
-        if not os.path.exists("../data/svd_model.p"):
+        """ Create/Get the model trained with the ratings """
+
+        if not os.path.exists("../data/svd_model.p"):  # If the model file doesn't exists, create it
             ratings_for_reader = Dataset.load_from_df(self.ratings_dataset[['userId', 'movieId', 'rating']], self.reader)
             trainset = ratings_for_reader.build_full_trainset()
-            temp_model = self.svd.fit(trainset)
+            temp_model = self.svd.fit(trainset)  # Train procedure
             with open("../data/svd_model.p", 'wb') as model:
                 pickle.dump(temp_model, model)
-        else:
+        else:  # If the model file exists, load it into svd variable
             with open('../data/svd_model.p', 'rb') as fp:
                 self.svd = pickle.load(fp, encoding="utf8")
 
     def calculate_tfidf(self):
+        """ Generatio of TFIDF matrix needed for cosine similarity """
+
         # Add extra columns to clean_dataset from orignial's one
         self.clean_dataframe['overview'], self.clean_dataframe['id'] = self.original_dataframe['overview'], self.original_dataframe['id']
 
@@ -55,64 +57,78 @@ class HybridRecommenderSystem:
         return tfidf_matrix
 
     def calculate_cosine_similarity(self):
+        """ Calculation of cosine similarity """
         tfidf_matrix = self.calculate_tfidf()
 
-        cosine_similarity = linear_kernel(tfidf_matrix, tfidf_matrix)
+        cosine_similarity = linear_kernel(tfidf_matrix, tfidf_matrix)  # Cosine similarity matrix calculation
 
         return cosine_similarity
 
-    def generate_indicies(self, movies_dataset, userIds):
-        # indices = pd.Series(clean_dataframe.index, index=clean_dataframe['title']).drop_duplicates()
+    def generate_indicies(self, userIds):
+        """ Get the top(3) movies from the users selected """
+
+        # From ratings dataset
+        # 1. Remove duplicates
+        # 2. Fetch the rows that match the selected users
+        # 3. Group the results by users
+        # 4. Sort the groups from step 3 by movie rating in descending order (Biggest ratings first)
+        # 5. Get the Top(3) results from each group
+        # 6. Drop the null values
         indices = self.ratings_dataset.drop_duplicates().where(self.ratings_dataset['userId'].isin(userIds)).groupby('userId').apply(lambda _df: _df.sort_values(by=['rating'], ascending=False).head(self.top_movies)).dropna()[['movieId']].astype(int).values.flatten()
         return indices
 
-    def content_based_recommender(self, movies_dataset, usersIds):
-        # Obtain the index of the movie that matches the title
-        indices = self.generate_indicies(movies_dataset, usersIds)
+    def content_based_recommender(self, usersIds):
+        """ Fetch the movies by content based filtering """
 
-        # Select movies by users
-        # From the selected movies fetch sim_scores
-        # idx = indices[title]
+        # Obtain the index of the movies that matches the users
+        indices = self.generate_indicies(usersIds)
 
         # Calculate cosine similarity (or extract it from file)
         cosine_similarity = self.calculate_cosine_similarity()
 
-        # Get the pairwise similarity scores of all movies with that movie
-        # And convert it into a list of tuples as described above
+        # Get the pairwise similarity scores of all movies with the movies
+        # And convert it into a list of list of tuples
         sim_scores = [list(enumerate(cosine_similarity[i])) for i in indices]
 
         # Sort the movies based on the cosine similarity scores
         sim_scores = [sorted(sim_scores[i], key=lambda x: x[1], reverse=True) for i in range(len(sim_scores))]
 
-        # Get the scores of the 10 most similar movies. Ignore the first movie.
+        # Get the scores of the 3 most similar movies. Ignore the first movie.
         sim_scores = [sim_scores[i][1:self.top_movies] for i in range(len(sim_scores))]
 
         # Get the movie indices
         movie_indices = [i[0] for sim_score in sim_scores for i in sim_score]
 
-        # Return the top 10 most similar movies
         return movie_indices
 
     def hybrid(self, usersIds):
-        movie_indices = self.content_based_recommender(self.clean_dataframe, usersIds)
+        """ Apply the SVD to the content based filtered movies """
 
-        #Extract the metadata of the aforementioned movies
+        # Get movies from content based filtering
+        movie_indices = self.content_based_recommender(usersIds)
+
+        # Extract the metadata of the aforementioned movies
+        # metadata = ['title', 'vote_count', 'vote_average', 'year', 'id']
         movies = self.clean_dataframe.iloc[movie_indices][['title', 'vote_count', 'vote_average', 'year', 'id']]
 
-        #Compute the predicted ratings using the SVD filter
+        # Compute the predicted ratings using the SVD filter
         movies['est'] = movies['id'].apply(lambda x: self.predict(usersIds, int(x)))
 
-        #Sort the movies in decreasing order of predicted rating
+        # Sort the movies in decreasing order of predicted rating
         movies = movies.sort_values('est', ascending=False)
 
-        #Return the top 10 movies as recommendations
+        # Return the top 10 movies as recommendations
         return movies.head(10)
 
     def predict(self, users, movieId):
+        """ SVD prediction per set of users on a selected movie (movieId)"""
+
+        # This piece of code escapes the not found movieId
         try:
             title = self.id_to_title.loc[movieId]['title']
         except:
             title = ''
 
+        # Return the mean value of svd prediction for all the selected users
         return mean([self.svd.predict(i, title).est for i in users])
 

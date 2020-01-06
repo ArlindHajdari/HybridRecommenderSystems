@@ -3,7 +3,7 @@ import numpy as np
 from ast import literal_eval
 
 
-# Helper function to convert NaT to 0 and all other years to integers.
+# Helper function to convert NaN to 0 and all other years to integers.
 def convert_int(x):
     try:
         return int(x)
@@ -11,7 +11,7 @@ def convert_int(x):
         return 0
 
 
-def clean_dataset(self, full_dataset_path="../data/movies_metadata.csv"):
+def clean_dataset(full_dataset_path="../data/movies_metadata.csv"):
     full_dataset = pd.read_csv(full_dataset_path)
 
     # Only keep those features that we require
@@ -40,7 +40,9 @@ def clean_dataset(self, full_dataset_path="../data/movies_metadata.csv"):
 
     return full_dataset
 
+
 def read_in_chunks(file_object, chunk_size=1024):
+    """ Read the file in chunks (for big files) """
     while True:
         data = file_object.read(chunk_size)
         if not data:

@@ -1,12 +1,3 @@
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file 'LoginScreen.ui'
-#
-# Created by: PyQt5 UI code generator 5.13.2
-#
-# WARNING! All changes made in this file will be lost!
-
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QAbstractItemView, QMessageBox
 import pandas as pd
@@ -19,7 +10,7 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         super(Ui_MovieRecommenderMain, self).__init__(parent)
         self.hrs = HybridRecommenderSystem()
         self.setupUi(self)
-        self.parent = parent
+        self.parent = parent  # This is needed for the logout procedure (check: btnHome_Click)
 
     def setupUi(self, MovieRecommenderMain):
         MovieRecommenderMain.setObjectName("MovieRecommenderMain")
@@ -80,6 +71,7 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         QtCore.QMetaObject.connectSlotsByName(MovieRecommenderMain)
 
     def retranslateUi(self, MovieRecommenderMain):
+        """ GUI text set for the elements """
         _translate = QtCore.QCoreApplication.translate
         MovieRecommenderMain.setWindowTitle(_translate("MovieRecommenderMain", "Movie Recommeder"))
         self.lblFriends.setText(_translate("MovieRecommenderMain", "Friends: "))
@@ -87,34 +79,53 @@ class Ui_MovieRecommenderMain(QtWidgets.QMainWindow, object):
         self.lblRecommendedMovies.setText(_translate("MovieRecommenderMain", "Recommended movies"))
 
     def populateFriendList(self):
+        """ Populate the ListWidget with users """
+
+        # Suppose that 20 first rows are the friends of the logged in user
         friends = pd.read_csv("../data/users.csv", nrows=20)
 
         for index, row in friends.iterrows():
-            if row[1] != SessionUser.username:
-                item = QtWidgets.QListWidgetItem(row[1], self.friendsList)
-                item.setData(QtCore.Qt.UserRole, row[0])
+            if row[1] != SessionUser.username:  # Escape the logged in user (since he can not be friend with himself)
+                item = QtWidgets.QListWidgetItem(row[1], self.friendsList)  # Set the display value of the ListWidget item
+                item.setData(QtCore.Qt.UserRole, row[0])  # Set the value of the ListWidget item
 
     def btnHome_Click(self):
-        self.close()
+        """ Logout procedure """
+        self.close()  # Close the current screen (Main)
+        # Reset the textboxes
         self.parent.lbUsername.setText("")
         self.parent.lbPassword.setText("")
+
+        # Show the login screen
         self.parent.show()
+
+        # The logout procedure
         SessionUser.id = -1
         SessionUser.username = "none"
 
     def btnGenerate_Click(self):
+        """ Generate the recommended movies from the selected users """
+
+        # Get the selected users ids
         usersIds = [int(item.data(QtCore.Qt.UserRole)) for item in self.friendsList.selectedItems()]
 
-        model = QtGui.QStandardItemModel()
+        model = QtGui.QStandardItemModel()  # Initialize the model that is used by ListView
 
-        if len(usersIds) > 0:
-            # The implementation of Hybrid recommander system
-            recommended_movies = self.hrs.hybrid(usersIds)
-            recommended_movies = recommended_movies['title'].values
+        if len(usersIds) > 0:  # Check if there are selected users
+            # Add the current user to evaluate
+            usersIds.insert(0, int(SessionUser.id))
 
-            for item in recommended_movies:
-                model.appendRow(QtGui.QStandardItem(item))
+            try:
+                # The implementation of Hybrid recommender system
+                recommended_movies = self.hrs.hybrid(usersIds)
+                recommended_movies = recommended_movies['title'].values
+
+                # Populate the model with the recommended movies titles
+                for item in recommended_movies:
+                    model.appendRow(QtGui.QStandardItem(item))
+            except Exception as ex:
+                QMessageBox.critical(self, 'Error', str(ex))
         else:
             QMessageBox.warning(self, 'Friends', "Please select your friends!", QMessageBox.Ok, QMessageBox.Ok)
 
-        self.listView.setModel(model)  # listView population
+        self.listView.setModel(model)  # ListView population

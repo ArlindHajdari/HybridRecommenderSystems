@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file 'LoginScreen.ui'
-#
-# Created by: PyQt5 UI code generator 5.11.3
-#
-# WARNING! All changes made in this file will be lost!
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
@@ -13,6 +6,20 @@ import pandas as pd
 from Models.SessionUser import SessionUser
 
 chunksize = 10 ** 6
+
+
+# region [Old exception behaviour (PyQt4.0)]
+# The PyQt5.0 exceptions, terminate the GUI application
+# In order to stop that we handle it with the following code:
+def my_excepthook(type, value, tback):
+    # log the exception here
+
+    # then call the default handler
+    sys.__excepthook__(type, value, tback)
+
+
+sys.excepthook = my_excepthook
+# endregion
 
 class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
@@ -73,6 +80,7 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
         QtCore.QMetaObject.connectSlotsByName(MovieRecommender_Window)
 
     def retranslateUi(self, MovieRecommender_Window):
+        """ GUI text set for the elements """
         _translate = QtCore.QCoreApplication.translate
         MovieRecommender_Window.setWindowTitle(_translate("MovieRecommender_Window", "Movie Recommeder"))
         self.lbUsername.setPlaceholderText(_translate("MovieRecommender_Window", "Username"))
@@ -81,12 +89,13 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
         self.lbLogin.setText(_translate("MovieRecommender_Window", "Login"))
 
     def userExists(self):
-        """ User check in the dataset """
+        """ User check in the dataset
+            returns empty dataframe on error, the matched row if credentials match"""
         if self.lbUsername.text() is "" or self.lbPassword.text() is "":
             return pd.DataFrame()
 
-        # usersDF = pd.read_csv("../data/users.csv", dtype=str)
-
+        # Check for the typed credentials on a chunk separated dataset (chunksize = 1.000.000 bytes)
+        # For a better performance if the user exists at the beginning, the same if exists at the end of the dataset
         for chunk in pd.read_csv("../data/users.csv", dtype=str, chunksize=chunksize):
             row_found = chunk.loc[(chunk.userNames == self.lbUsername.text()) & (chunk.password == self.lbPassword.text())]
             if not row_found.empty:
@@ -95,14 +104,17 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
         return pd.DataFrame()
 
     def onSubmit(self):
+        """ Login procedure """
+
         userBeing = self.userExists()
         if userBeing.empty:
             QMessageBox.warning(self, 'LOGIN', "Please type the right information!", QMessageBox.Ok, QMessageBox.Ok)
             return
 
+        # Set the session static class with the logged in user details
         SessionUser.id = userBeing.id.values[0]
         SessionUser.username = userBeing.userNames[0]
-        
-        main = Ui_MovieRecommenderMain(self)
-        self.close()
-        main.show()
+
+        main = Ui_MovieRecommenderMain(self)  # Initialize the new screen
+        self.close()  # Close the current screen(Login screen)
+        main.show()  # Show the Main screen
