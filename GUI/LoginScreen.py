@@ -21,6 +21,7 @@ def my_excepthook(type, value, tback):
 sys.excepthook = my_excepthook
 # endregion
 
+
 class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
     def __init__(self, parent=None):
         super(Ui_MovieRecommender_Window, self).__init__(parent)
@@ -113,7 +114,7 @@ class Ui_MovieRecommender_Window(QtWidgets.QMainWindow, object):
 
         # Set the session static class with the logged in user details
         SessionUser.id = userBeing.id.values[0]
-        SessionUser.username = userBeing.userNames[0]
+        SessionUser.username = userBeing.userNames.values[0]
 
         main = Ui_MovieRecommenderMain(self)  # Initialize the new screen
         self.close()  # Close the current screen(Login screen)
